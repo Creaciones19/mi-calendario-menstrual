@@ -287,6 +287,14 @@ function quickPeriodToday(){
   renderAll();
 }
 
+function scrollCycleStart(){
+  const input=$("#cycleAnchorDate");
+  if(!input){ toast("No encontré la sección Tu ciclo empieza aquí"); return; }
+  const target=input.closest("section, .card, .panel") || input;
+  target.scrollIntoView({behavior:"smooth",block:"start"});
+  setTimeout(()=>{ try{ input.focus({preventScroll:true}); }catch(e){ input.focus(); } },450);
+}
+
 function renderCycle(){
   const d=getData();
   const info=cycleInfoForDate(new Date(),d);
@@ -578,6 +586,33 @@ function exportData(){
   URL.revokeObjectURL(a.href);
 }
 
+async function resetAllData(){
+  const ok=confirm("¿Seguro que quieres borrar TODOS tus datos de Mi Ciclo y empezar de nuevo? Esta acción no se puede deshacer.");
+  if(!ok) return;
+
+  try{
+    const keys=[];
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k && /^miCiclo/i.test(k)) keys.push(k);
+    }
+    keys.forEach(k=>localStorage.removeItem(k));
+  }catch(e){
+    MEMORY_FALLBACK=null;
+  }
+
+  try{
+    if("caches" in window){
+      const names=await caches.keys();
+      await Promise.all(names.filter(n=>n.startsWith("mi-ciclo")).map(n=>caches.delete(n)));
+    }
+  }catch(e){ console.warn("No se pudo limpiar caché",e); }
+
+  try{ await setAppBadge(0); }catch(e){}
+  toast("Datos borrados. Mi Ciclo volverá a iniciar.");
+  setTimeout(()=>location.reload(),550);
+}
+
 function restoreBackupFile(file){
   if(!file) return;
   const reader=new FileReader();
@@ -612,7 +647,7 @@ function toggleMedicineDate(){
   $("#medicineCustomBox").style.display=(f==="custom")?"block":"none";
 }
 
-function saveMedicineReminder(){
+async function saveMedicineReminder(){
   const d=getData();
   const frequency=$("#medicineFrequency").value;
   const time=$("#medicineTime").value;
@@ -631,6 +666,15 @@ function saveMedicineReminder(){
   setData(d);
   toast("Recordatorio guardado");
   renderMedicineReminder();
+
+  // Pide permiso desde el mismo clic de Guardar, que es cuando los navegadores
+  // permiten mostrar el aviso de autorización.
+  if("Notification" in window && Notification.permission==="default"){
+    try{
+      const permission=await Notification.requestPermission();
+      if(permission==="granted") toast("Recordatorio guardado y notificaciones activadas 🔔");
+    }catch(e){ console.warn("Permiso de notificaciones",e); }
+  }
   checkMedicineReminder(true);
 }
 
@@ -834,7 +878,39 @@ window.addEventListener("appinstalled",()=>toast("Mi Ciclo quedó instalada 🌸
 
 async function registerServiceWorker(){
   if(!("serviceWorker" in navigator)) return;
-  if(location.protocol!=="https:" && location.hostname!=="localhost" && location.hostname!=="127.0.0.1") return;
+
+  const isLocal =
+    location.hostname === "localhost" ||
+    location.hostname === "127.0.0.1";
+
+  /*
+    IMPORTANTE:
+    En Live Server no registramos Service Worker.
+    Así Mi Ciclo no puede quedarse controlando localhost
+    ni mostrar su index.html cuando se abre otro proyecto.
+  */
+  if(isLocal){
+    try{
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(registration => registration.unregister()));
+
+      if("caches" in window){
+        const keys = await caches.keys();
+        await Promise.all(
+          keys
+            .filter(key => key.startsWith("mi-ciclo"))
+            .map(key => caches.delete(key))
+        );
+      }
+    }catch(e){
+      console.warn("Limpieza local de Service Worker:", e);
+    }
+    return;
+  }
+
+  // La PWA solo registra el Service Worker cuando está publicada por HTTPS.
+  if(location.protocol !== "https:") return;
+
   try{
     await navigator.serviceWorker.register("./service-worker.js");
   }catch(e){
@@ -861,6 +937,7 @@ window.addEventListener("offline",renderConnection);
 function runStaticAction(action){
   switch(action){
     case "quickPeriodToday()": return quickPeriodToday();
+    case "scrollCycleStart()": return scrollCycleStart();
     case "go('registro')": return go("registro");
     case "go('calendario')": return go("calendario");
     case "go('bienestar')": return go("bienestar");
@@ -877,6 +954,7 @@ function runStaticAction(action){
     case "saveSettings()": return saveSettings();
     case "exportData()": return exportData();
     case "cleanInvalidHistory()": return cleanInvalidHistory();
+    case "resetAllData()": return resetAllData();
     case "generateMedicalReport()": return generateMedicalReport();
     case "saveMedicineReminder()": return saveMedicineReminder();
     case "enableMedicineNotifications()": return enableMedicineNotifications();
@@ -976,9 +1054,103 @@ function nextCustomReminderDate(r){
   return next;
 }
 
+function cleanPdfText(value){
+  return String(value??"")
+    .replace(/[\r\n\t]+/g," ")
+    .replace(/\s{2,}/g," ")
+    .trim();
+}
+
+function wrapPdfText(text,maxChars=86){
+  const words=cleanPdfText(text).split(" ").filter(Boolean);
+  if(!words.length) return [""];
+  const lines=[];
+  let line="";
+  words.forEach(word=>{
+    const candidate=line?`${line} ${word}`:word;
+    if(candidate.length<=maxChars){
+      line=candidate;
+    }else{
+      if(line) lines.push(line);
+      if(word.length<=maxChars){
+        line=word;
+      }else{
+        let rest=word;
+        while(rest.length>maxChars){ lines.push(rest.slice(0,maxChars)); rest=rest.slice(maxChars); }
+        line=rest;
+      }
+    }
+  });
+  if(line) lines.push(line);
+  return lines;
+}
+
+function pdfByteString(text){
+  const map={
+    "€":128,"‚":130,"ƒ":131,"„":132,"…":133,"†":134,"‡":135,"ˆ":136,"‰":137,"Š":138,"‹":139,"Œ":140,
+    "Ž":142,"‘":145,"’":146,"“":147,"”":148,"•":149,"–":150,"—":151,"˜":152,"™":153,"š":154,"›":155,"œ":156,"ž":158,"Ÿ":159
+  };
+  let out="";
+  for(const ch of String(text)){
+    const cp=ch.codePointAt(0);
+    if(map[ch]!==undefined) out+=String.fromCharCode(map[ch]);
+    else if(cp<=255) out+=String.fromCharCode(cp);
+    else out+="?";
+  }
+  return out;
+}
+
+function pdfEscape(text){
+  return pdfByteString(text).replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)");
+}
+
+function buildSimplePdf(pages){
+  const objects=[];
+  const add=obj=>{ objects.push(obj); return objects.length; };
+  const catalogId=add("");
+  const pagesId=add("");
+  const regularFontId=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+  const boldFontId=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+  const pageIds=[];
+
+  pages.forEach(page=>{
+    let stream="";
+    page.forEach(item=>{
+      const font=item.bold?"F2":"F1";
+      const size=item.size||10;
+      const x=item.x||48;
+      const y=item.y||740;
+      stream+=`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${pdfEscape(item.text)}) Tj ET\n`;
+    });
+    const streamBytes=pdfByteString(stream);
+    const contentId=add(`<< /Length ${streamBytes.length} >>\nstream\n${streamBytes}endstream`);
+    const pageId=add(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${regularFontId} 0 R /F2 ${boldFontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    pageIds.push(pageId);
+  });
+
+  objects[catalogId-1]=`<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
+  objects[pagesId-1]=`<< /Type /Pages /Count ${pageIds.length} /Kids [${pageIds.map(id=>`${id} 0 R`).join(" ")}] >>`;
+
+  let pdf="%PDF-1.4\n%âãÏÓ\n";
+  const offsets=[0];
+  objects.forEach((obj,i)=>{
+    offsets[i+1]=pdfByteString(pdf).length;
+    pdf+=`${i+1} 0 obj\n${obj}\nendobj\n`;
+  });
+  const xrefOffset=pdfByteString(pdf).length;
+  pdf+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;
+  for(let i=1;i<=objects.length;i++) pdf+=`${String(offsets[i]).padStart(10,"0")} 00000 n \n`;
+  pdf+=`trailer\n<< /Size ${objects.length+1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  const binary=pdfByteString(pdf);
+  const bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i)&255;
+  return new Blob([bytes],{type:"application/pdf"});
+}
+
 function generateMedicalReport(){
   const d=getData();
-  const range=$("#reportRange").value;
+  const range=$("#reportRange")?.value || "all";
   let startDate=null;
   if(range!=="all"){
     startDate=new Date();
@@ -988,50 +1160,120 @@ function generateMedicalReport(){
   const entries=Object.entries(d.logs||{})
     .filter(([ds])=>!startDate || dateFrom(ds)>=startDate)
     .sort((a,b)=>a[0].localeCompare(b[0]));
-
-  const starts=normalizeStarts(d)
-    .filter(ds=>!startDate || dateFrom(ds)>=startDate);
-
+  const starts=normalizeStarts(d).filter(ds=>!startDate || dateFrom(ds)>=startDate);
   const avg=averageCycleLength(d);
-  const name=d.profile?.name||"Sin nombre";
+  const name=cleanPdfText(d.profile?.name||"Sin nombre");
   const birthday=d.profile?.birthday?formatDate(dateFrom(d.profile.birthday)):"No registrada";
   const med=d.medicineReminder;
 
-  const rows=entries.map(([ds,l])=>`
-    <tr>
-      <td>${formatDate(dateFrom(ds))}</td>
-      <td>${l.period?"Sí":"No"}</td>
-      <td>${l.flow||"—"}</td>
-      <td>${l.pain??"—"}/10</td>
-      <td>${l.energy??"—"}/10</td>
-      <td>${(l.moods||[]).join(", ")||"—"}</td>
-      <td>${(l.notes||"").replace(/</g,"&lt;")||"—"}</td>
-    </tr>`).join("");
+  const logical=[];
+  const addLine=(text,opts={})=>logical.push({text:cleanPdfText(text),...opts});
+  const addWrapped=(text,opts={})=>wrapPdfText(text,opts.maxChars||86).forEach(line=>addLine(line,opts));
+  const gap=(h=8)=>logical.push({gap:h});
 
-  const medText=med ? `${med.type||"Recordatorio"}: ${med.name||"—"} · ${med.frequency||"—"} · ${med.time||"—"}` : "No registrado";
+  addLine("Mi Ciclo - Informe de seguimiento",{size:18,bold:true});
+  addLine(`Generado: ${new Date().toLocaleString("es-MX")}`,{size:9});
+  gap(8);
+  addLine("Datos generales",{size:13,bold:true});
+  addWrapped(`Nombre: ${name}`);
+  addWrapped(`Cumpleaños: ${birthday}`);
+  gap(6);
+  addLine("Resumen menstrual",{size:13,bold:true});
+  addWrapped(`Inicios de menstruación registrados: ${starts.length}`);
+  addWrapped(`Duración media usada del ciclo: ${avg} días`);
+  addWrapped(`Duración habitual de menstruación: ${d.settings.periodLength||5} días`);
+  if(starts.length) addWrapped(`Último inicio real registrado: ${formatDate(dateFrom(starts[starts.length-1]))}`);
+  gap(6);
+  addLine("Anticonceptivo / medicamento",{size:13,bold:true});
+  if(med){
+    addWrapped(`${med.type||"Recordatorio"}: ${med.name||"—"}`);
+    addWrapped(`Frecuencia: ${med.frequency||"—"} · Hora: ${med.time||"—"}`);
+  }else addLine("No registrado");
+  gap(8);
+  addLine("Registros diarios",{size:13,bold:true});
 
-  const report=`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe Mi Ciclo</title>
-  <style>
-  body{font-family:Arial,sans-serif;color:#2f2630;margin:32px}h1{color:#c82f78}h2{margin-top:24px}
-  .box{border:1px solid #e8ccd9;border-radius:12px;padding:12px;margin:10px 0;background:#fff9fc}
-  table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ddd;padding:6px;text-align:left;vertical-align:top}
-  th{background:#fff0f7}.small{font-size:11px;color:#666}.print{margin:12px 0;padding:10px 14px;border:0;border-radius:8px;background:#c82f78;color:white;font-weight:bold}
-  @media print{.print{display:none}body{margin:10mm}}
-  </style></head><body>
-  <button class="print" onclick="window.print()">Guardar / imprimir como PDF</button>
-  <h1>Mi Ciclo · Informe de seguimiento</h1>
-  <div class="box"><b>Nombre:</b> ${name}<br><b>Cumpleaños:</b> ${birthday}<br><b>Generado:</b> ${new Date().toLocaleString("es-MX")}</div>
-  <h2>Resumen menstrual</h2>
-  <div class="box"><b>Inicios de menstruación registrados:</b> ${starts.length}<br><b>Duración media usada del ciclo:</b> ${avg} días<br><b>Duración habitual de menstruación:</b> ${d.settings.periodLength||5} días</div>
-  <h2>Anticonceptivo / medicamento</h2><div class="box">${medText}</div>
-  <h2>Registros diarios</h2>
-  ${entries.length?`<table><thead><tr><th>Fecha</th><th>Menstruación</th><th>Flujo</th><th>Dolor</th><th>Energía</th><th>Ánimo</th><th>Notas</th></tr></thead><tbody>${rows}</tbody></table>`:"<p>No hay registros en el periodo seleccionado.</p>"}
-  <p class="small">Este informe resume información registrada por la persona usuaria. No realiza diagnósticos ni sustituye una valoración médica.</p>
-  </body></html>`;
+  if(!entries.length){
+    addLine("No hay registros en el periodo seleccionado.");
+  }else{
+    entries.forEach(([ds,l],idx)=>{
+      if(idx) gap(5);
+      addWrapped(`${formatDate(dateFrom(ds))} | Menstruación: ${l.period?"Sí":"No"} | Flujo: ${l.flow||"—"} | Dolor: ${l.pain??"—"}/10 | Energía: ${l.energy??"—"}/10`,{bold:true,maxChars:78});
+      if((l.moods||[]).length) addWrapped(`Ánimo: ${(l.moods||[]).join(", ")}`);
+      if(cleanPdfText(l.notes||"")) addWrapped(`Notas: ${l.notes}`);
+    });
+  }
+  gap(10);
+  addWrapped("Este informe resume información registrada por la persona usuaria. No realiza diagnósticos ni sustituye una valoración médica.",{size:8,maxChars:100});
 
-  const w=window.open("","_blank");
-  if(!w){alert("Permite ventanas emergentes para generar el informe.");return;}
-  w.document.open(); w.document.write(report); w.document.close();
+  const pages=[];
+  let page=[];
+  let y=744;
+  const newPage=()=>{
+    if(page.length) pages.push(page);
+    page=[]; y=744;
+  };
+
+  logical.forEach(item=>{
+    if(item.gap){ y-=item.gap; return; }
+    const size=item.size||10;
+    const leading=size>=16?25:size>=13?20:size<=8?11:15;
+    if(y-leading<48) newPage();
+    page.push({text:item.text,size,bold:!!item.bold,x:item.x||48,y});
+    y-=leading;
+  });
+  newPage();
+
+  try{
+    const blob=buildSimplePdf(pages.length?pages:[[{text:"Mi Ciclo - Informe",size:18,bold:true,x:48,y:744}]]);
+    const a=document.createElement("a");
+    const url=URL.createObjectURL(blob);
+    a.href=url;
+    const safeName=(userName()||"usuario").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/gi,"-").replace(/^-|-$/g,"");
+    a.download=`mi-ciclo-informe-${safeName||"usuario"}-${ymd(new Date())}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    toast("PDF descargado correctamente");
+  }catch(err){
+    console.error(err);
+    alert("No pude generar el PDF. Recarga la app e inténtalo de nuevo.");
+  }
+}
+
+function setupUiFixes(){
+  // En Inicio dejamos un solo botón: lleva a la sección donde se captura la fecha real.
+  const topPeriodBtn=document.querySelector('[data-action="quickPeriodToday()"]');
+  if(topPeriodBtn){
+    topPeriodBtn.dataset.action="scrollCycleStart()";
+    topPeriodBtn.textContent="🩸 Tu ciclo empieza aquí";
+
+    const group=topPeriodBtn.parentElement;
+    if(group){
+      const registerBtn=[...group.querySelectorAll('[data-action="go(\'registro\')"]')][0];
+      if(registerBtn) registerBtn.remove();
+    }
+  }
+
+  const pdfBtn=document.querySelector('[data-action="generateMedicalReport()"]');
+  if(pdfBtn) pdfBtn.textContent="Descargar informe PDF";
+
+  // Agrega una opción clara para dejar la app como nueva sin tocar datos de otros proyectos del mismo sitio.
+  if(!document.querySelector('[data-action="resetAllData()"]')){
+    const ref=document.querySelector('[data-action="cleanInvalidHistory()"]') || document.querySelector('[data-action="exportData()"]');
+    if(ref && ref.parentElement){
+      const btn=document.createElement("button");
+      btn.type="button";
+      btn.dataset.action="resetAllData()";
+      btn.className=ref.className;
+      btn.textContent="Borrar todos mis datos y empezar de nuevo";
+      btn.style.marginTop="10px";
+      btn.style.borderColor="#e2a7b7";
+      btn.style.background="#fff";
+      btn.style.color="#9f244c";
+      ref.parentElement.appendChild(btn);
+    }
+  }
 }
 
 function renderAll(){
@@ -1068,6 +1310,7 @@ function init(){
   // Si llega desde una notificación, abre Anticonceptivo.
   if(location.hash==="#anticonceptivo") go("anticonceptivo");
 
+  setupUiFixes();
   renderAll();
   loadLogForDate();
   registerServiceWorker();
