@@ -1,0 +1,12 @@
+MI CICLO V9
+
+1. Descomprime todos los archivos.
+2. Abre la carpeta en VS Code.
+3. Abre index.html con Live Server.
+4. En Bienestar encontrarás:
+   - Crear respaldo
+   - Restaurar respaldo
+   - Limpiar fechas inválidas
+5. Guarda el archivo .json del respaldo en Drive, OneDrive, computadora o correo.
+
+No borres app.js, manifest.webmanifest, service-worker.js ni los iconos.

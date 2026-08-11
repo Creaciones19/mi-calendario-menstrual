@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#e93f93">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Mi Ciclo">
+<title>Mi Ciclo · Diario menstrual</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="favicon-64.png">
+<style>
+:root{
+  --pink:#e93f93; --pink2:#ff9aca; --rose:#fff1f7; --lav:#f6f0ff;
+  --blue:#eaf9ff; --green:#dff6df; --yellow:#fff6d8; --ink:#30262c;
+  --muted:#786a72; --card:#fff; --line:#f0d8e4;
+  --shadow:0 14px 38px rgba(105,55,82,.10); --danger:#a52f52;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:linear-gradient(180deg,#fff9fc,#fff 50%,#f8fbff);
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  color:var(--ink)
+}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.app{max-width:760px;margin:auto;padding:18px 14px 112px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:3px 2px 16px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{
+  width:45px;height:45px;border-radius:16px;
+  background:linear-gradient(135deg,#ffb9da,#e93f93);
+  display:grid;place-items:center;font-size:25px;box-shadow:var(--shadow)
+}
+.brand h1{font-size:24px;margin:0}
+.brand small{display:block;color:var(--muted);margin-top:2px}
+.install{
+  display:inline-flex;border:0;background:#30262c;color:#fff;font-weight:800;
+  border-radius:13px;padding:10px 13px;align-items:center;gap:6px
+}
+.view{display:none}.view.active{display:block}
+.hero{
+  border:1px solid var(--line);border-radius:28px;padding:20px;
+  background:linear-gradient(135deg,#ffe8f4 0%,#fff 56%,#edfaff 100%);
+  box-shadow:var(--shadow)
+}
+.hero-grid{display:grid;grid-template-columns:218px 1fr;gap:20px;align-items:center}
+.wheel{width:205px;height:205px;position:relative;margin:auto}
+.ring{
+  position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(#ff8fc5 0 70deg,#cdeecf 70deg 140deg,#8edbee 140deg 200deg,#f8c565 200deg 360deg)
+}
+.ring:after{
+  content:"";position:absolute;inset:17px;border-radius:50%;
+  background:conic-gradient(#fff0f7 0 70deg,#f3fff2 70deg 140deg,#eefcff 140deg 200deg,#fff9e9 200deg 360deg)
+}
+.center{
+  position:absolute;z-index:2;inset:58px;border-radius:50%;background:#fff;
+  box-shadow:0 5px 18px rgba(0,0,0,.08);display:grid;place-items:center;text-align:center
+}
+.center b{font-size:32px;line-height:1}
+.center span{font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.06em}
+#wheelPhase{display:block;margin-top:4px;font-size:8px;line-height:1.15;font-weight:900;color:var(--pink)}
+.marker{
+  position:absolute;z-index:4;width:17px;height:17px;background:var(--pink);
+  border:4px solid white;border-radius:50%;left:94px;top:-4px;
+  transform-origin:8.5px 106.5px;transform:rotate(var(--angle,0deg));
+  transition:transform .65s ease;box-shadow:0 2px 8px #0003
+}
+.hero-copy .eyebrow{
+  display:inline-flex;background:#fff;border:1px solid var(--line);
+  border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800
+}
+.hero-copy h2{font-size:25px;line-height:1.16;margin:10px 0 8px}
+.hero-copy p{color:var(--muted);line-height:1.55;margin:0 0 14px}
+.row{display:flex;gap:9px;flex-wrap:wrap}
+.btn{border:0;border-radius:14px;padding:11px 15px;font-weight:800}
+.primary{background:var(--pink);color:white}
+.soft{background:var(--rose);color:var(--pink)}
+.outline{background:white;border:1px solid var(--line);color:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.stat{background:white;border:1px solid var(--line);border-radius:19px;padding:14px;box-shadow:0 7px 22px rgba(105,55,82,.05)}
+.stat small{color:var(--muted);display:block;margin-bottom:5px}
+.stat b{font-size:19px}
+.card{background:white;border:1px solid var(--line);border-radius:23px;padding:17px;margin-top:12px;box-shadow:0 8px 24px rgba(105,55,82,.05)}
+.card h3{margin:0 0 12px;font-size:18px}.card p{line-height:1.55}
+.quick{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.quick button{border:1px solid var(--line);background:#fff;border-radius:18px;padding:14px;text-align:left}
+.quick strong{display:block;margin-top:5px}.quick small{color:var(--muted)}
+.label{font-size:12px;color:var(--muted);display:block;margin:10px 0 6px;font-weight:700}
+input,select,textarea{
+  width:100%;border:1px solid #ead0dd;background:white;color:var(--ink);
+  border-radius:14px;padding:12px 13px;outline:0
+}
+textarea{min-height:84px;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--pink)}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.segment{display:flex;gap:7px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:white;border-radius:999px;padding:8px 11px;font-size:13px}
+.chip.on{background:var(--rose);border-color:#f3a8cb;color:#b6296a;font-weight:800}
+.flow-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.flow{border:1px solid var(--line);background:white;border-radius:14px;padding:10px 5px;text-align:center;font-size:12px}
+.flow.on{background:#ffe8f3;border-color:#ef8ebc;font-weight:800}
+.range-line{display:grid;grid-template-columns:1fr 44px;gap:8px;align-items:center}
+input[type=range]{padding:0;border:0;accent-color:var(--pink)}
+.range-val{text-align:center;background:var(--rose);border-radius:10px;padding:7px 4px;font-weight:800}
+.calendar-shell{background:linear-gradient(180deg,#fff,#fff8fc)}
+.calendar-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.iconbtn{width:38px;height:38px;border:1px solid var(--line);background:white;border-radius:12px;font-weight:900}
+.week,.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.week div{text-align:center;font-size:11px;color:var(--muted);font-weight:800;padding:5px 0}
+.day{
+  min-height:58px;border:1px solid #f0dbe6;background:#fff;border-radius:15px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;font-size:13px;overflow:hidden
+}
+.day.muted{opacity:.28}
+.day.today{border:2px solid #30262c;box-shadow:0 0 0 3px #fff,0 0 0 5px #30262c14}
+.day.period{background:linear-gradient(145deg,#ffd7e9,#fff0f6);color:#9d245b;font-weight:900;border-color:#f4aacb}
+.day.estimated{box-shadow:inset 0 0 0 2px #ef8fbd;background:#fff8fc}
+.day.fertile{background:linear-gradient(145deg,#e8faef,#f8fffb);border-color:#9ed5b2}
+.day.ovulation{background:linear-gradient(145deg,#d8f6ff,#f4fcff);border:2px solid #53bdd5}
+.day.haslog:after{content:"";position:absolute;width:6px;height:6px;border-radius:50%;background:#7c5ca8;bottom:5px;right:6px}
+.day .daynum{font-weight:900;line-height:1}
+.day .evt{font-size:11px;line-height:1;margin-top:4px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:11px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:5px}
+.sw{width:10px;height:10px;border-radius:4px;display:inline-block}
+.log-item{border:1px solid var(--line);border-radius:16px;padding:12px;margin-top:8px}
+.log-item .date{font-weight:900}.log-item small{color:var(--muted)}
+.alert{border-radius:17px;padding:13px 14px;margin-top:10px;background:#fff7e7;border:1px solid #f4dda7;line-height:1.5}
+.alert.red{background:#fff0f3;border-color:#f3b6c7;color:#7e2947}
+.learn{display:grid;gap:10px}
+.topic{border:1px solid var(--line);border-radius:18px;padding:14px;background:#fff}
+.topic summary{font-weight:900;cursor:pointer}.topic p,.topic li{color:var(--muted);line-height:1.55}
+.privacy{background:linear-gradient(135deg,#f8f1ff,#fff);border:1px solid #e5d7f4}
+.empty{text-align:center;color:var(--muted);padding:20px 8px}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:var(--rose);color:#a52c67;font-size:11px;font-weight:900}
+.bottomnav{
+  position:fixed;z-index:30;left:50%;bottom:10px;transform:translateX(-50%);
+  width:min(730px,calc(100% - 20px));background:#fffc;backdrop-filter:blur(14px);
+  border:1px solid var(--line);border-radius:22px;padding:8px;
+  display:grid;grid-template-columns:repeat(6,1fr);box-shadow:var(--shadow)
+}
+.nav{border:0;background:transparent;border-radius:14px;padding:7px 2px;color:var(--muted);font-size:10px;font-weight:800}
+.nav .ico{display:block;font-size:19px;margin-bottom:2px}.nav.active{background:var(--rose);color:var(--pink)}
+.toast{
+  position:fixed;left:50%;bottom:92px;transform:translate(-50%,20px);
+  background:#30262c;color:#fff;padding:10px 14px;border-radius:12px;
+  opacity:0;pointer-events:none;transition:.2s;z-index:100;font-size:13px
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.cycle-setup-card{background:linear-gradient(135deg,#fff0f7,#fff 58%,#eefcff)}
+.cycle-setup-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.cycle-live-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:12px}
+.cycle-live-box{background:#fff;border:1px solid var(--line);border-radius:16px;padding:11px}
+.cycle-live-box small{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}
+.cycle-live-box b{font-size:14px}
+.daystrip{display:grid;grid-template-columns:repeat(14,1fr);gap:5px}
+.daystrip-item{
+  aspect-ratio:1;border:1px solid var(--line);border-radius:10px;
+  display:grid;place-items:center;position:relative;font-size:11px;font-weight:800
+}
+.daystrip-item.current{outline:3px solid #e93f93;outline-offset:2px;box-shadow:0 0 0 5px #ffe5f1}
+.daystrip-item.current:after{content:"HOY";position:absolute;top:-8px;right:-4px;background:#30262c;color:#fff;font-size:6px;padding:2px 4px;border-radius:999px}
+.daystrip-item.period{background:#ffd7e9}.daystrip-item.fertile{background:#e8faef}.daystrip-item.ovulation{background:#d8f6ff}.daystrip-item.luteal{background:#fff6d8}
+.reminder-banner{
+  border-radius:20px;padding:15px 16px;margin:0 0 12px;
+  background:linear-gradient(135deg,#ffe4f1,#fff);border:2px solid #ef8ebc;
+  box-shadow:0 10px 28px rgba(105,55,82,.08)
+}
+.reminder-banner h3{margin:0 0 6px}.reminder-banner p{margin:0;color:var(--muted)}
+.reminder-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.reminder-status{border:1px solid var(--line);border-radius:16px;padding:12px;margin-top:10px;background:#fff}
+.summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.summary-box{border:1px solid var(--line);border-radius:15px;padding:11px;background:#fff}
+.summary-box small{display:block;color:var(--muted);margin-bottom:4px}
+.onboarding{
+  position:fixed;inset:0;background:#fff8fcf2;backdrop-filter:blur(8px);z-index:250;
+  display:none;align-items:center;justify-content:center;padding:18px
+}
+.onboarding.show{display:flex}
+.onboarding-card{width:min(500px,100%);background:#fff;border:1px solid var(--line);border-radius:28px;padding:22px;box-shadow:0 24px 70px #0002}
+.online-pill{font-size:11px;color:var(--muted);margin:-7px 0 10px 58px}
+@media(max-width:620px){
+  .hero-grid{grid-template-columns:1fr}
+  .wheel{width:188px;height:188px}
+  .center{inset:54px}
+  .marker{left:85.5px;transform-origin:8.5px 98px}
+  .stats{grid-template-columns:1fr 1fr}.stats .stat:last-child{grid-column:1/-1}
+  .formgrid{grid-template-columns:1fr}.flow-grid{grid-template-columns:repeat(2,1fr)}
+  .cycle-setup-row{grid-template-columns:1fr}.cycle-live-grid{grid-template-columns:1fr 1fr}
+  .brand small{max-width:165px}.bottomnav{bottom:7px;padding:6px 4px}
+  .nav{font-size:9px}.nav .ico{font-size:18px}.app{padding-bottom:105px}
+  .summary-grid{grid-template-columns:1fr}.day{min-height:52px;border-radius:12px}.calgrid{gap:5px}
+}
+
+.phase-legend{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+.phase-key{border:1px solid var(--line);border-radius:14px;padding:10px 11px;background:#fff;font-size:12px;line-height:1.35}
+.phase-key b{display:block;margin-bottom:3px}
+.phase-dot{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:-1px}
+.phase-menstrual{background:#ffd7e9}.phase-follicular{background:#fff}.phase-fertile{background:#e8faef}.phase-ovulation{background:#d8f6ff}.phase-luteal{background:#fff6d8}
+.daystrip-item{cursor:pointer}
+.daystrip-item .tip{display:none}
+.phase-card{margin-top:10px;border:1px solid var(--line);border-radius:16px;padding:12px;background:#fff}
+.phase-card h4{margin:0 0 5px}.phase-card p{margin:0;color:var(--muted);font-size:13px}
+.day .phase-name{font-size:7px;line-height:1.05;margin-top:3px;text-align:center;padding:0 2px}
+.birthday-card{background:linear-gradient(135deg,#fff4fb,#fff 60%,#fff7e2);border:2px solid #f3b7d5}
+.report-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:620px){.phase-legend{grid-template-columns:1fr}.report-controls{grid-template-columns:1fr}}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">🌸</div>
+      <div><h1>Mi Ciclo</h1><small>Tu diario menstrual, privado y sencillo</small></div>
+    </div>
+    <button id="installBtn" class="install">⬇ Instalar</button>
+  </header>
+  <div id="connectionText" class="online-pill"></div>
+
+  <section id="inicio" class="view active">
+    <div id="birthdayCard" class="card birthday-card" style="display:none;margin-top:0">
+      <h3>🎂 ¡Feliz cumpleaños!</h3>
+      <p id="birthdayText" style="margin-bottom:0"></p>
+    </div>
+    <div id="medicineBanner" class="reminder-banner" style="display:none">
+      <h3>💊 Recordatorio pendiente</h3>
+      <p id="medicineBannerText"></p>
+      <div class="reminder-actions">
+        <button class="btn primary" data-action="markMedicineTaken()">✅ Ya lo tomé</button>
+        <button class="btn outline" data-action="snoozeMedicine()">⏰ Recordarme en 15 min</button>
+      </div>
+    </div>
+
+    <div class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="wheel">
+            <div class="ring"></div>
+            <div id="marker" class="marker"></div>
+            <div class="center">
+              <div>
+                <b id="cycleDay">—</b><br>
+                <span>DÍA DEL CICLO</span>
+                <small id="wheelPhase"></small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="hero-copy">
+          <span class="eyebrow" id="phase">🌷 Empecemos</span>
+          <h2 id="hello">Conoce tu ciclo sin complicarte.</h2>
+          <p id="homeText">Registra tu menstruación y cómo te sientes. Con el tiempo podrás reconocer tus propios patrones.</p>
+          <div class="row">
+            <button class="btn primary" data-action="quickPeriodToday()">🩸 Mi periodo empezó hoy</button>
+            <button class="btn outline" data-action="go('registro')">Registrar mi día</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card cycle-setup-card">
+      <h3>🩸 Tu ciclo empieza aquí</h3>
+      <p style="color:var(--muted);margin-top:-4px">Pon el <b>primer día de tu última menstruación real</b>. La app calcula el día del ciclo, etapa, ventana fértil, ovulación y próxima menstruación de forma estimada.</p>
+      <div class="cycle-setup-row">
+        <div>
+          <label class="label">Primer día de tu última menstruación</label>
+          <input type="date" id="cycleAnchorDate">
+        </div>
+        <button class="btn primary" data-action="saveCycleAnchor()">Guardar y calcular</button>
+      </div>
+      <div class="cycle-live-grid">
+        <div class="cycle-live-box"><small>Hoy estás en</small><b id="liveCycleDay">Sin datos</b></div>
+        <div class="cycle-live-box"><small>Etapa estimada</small><b id="livePhase">—</b></div>
+        <div class="cycle-live-box"><small>Ovulación estimada</small><b id="liveOvulation">—</b></div>
+        <div class="cycle-live-box"><small>Próxima menstruación</small><b id="liveNextPeriod">—</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Mi ciclo día por día</h3>
+      <div id="dayStrip" class="daystrip"></div>
+      <div class="phase-legend">
+        <div class="phase-key"><b><span class="phase-dot phase-menstrual"></span>Rosa · Menstruación</b>Días estimados o registrados de sangrado.</div>
+        <div class="phase-key"><b><span class="phase-dot phase-follicular"></span>Blanco · Fase folicular</b>Etapa posterior a la menstruación y previa a la ventana fértil.</div>
+        <div class="phase-key"><b><span class="phase-dot phase-fertile"></span>Verde · Ventana fértil estimada</b>Días en los que podría aumentar la probabilidad de fertilidad.</div>
+        <div class="phase-key"><b><span class="phase-dot phase-ovulation"></span>Azul · Ovulación estimada</b>Día aproximado de ovulación calculado por calendario.</div>
+        <div class="phase-key"><b><span class="phase-dot phase-luteal"></span>Amarillo · Fase lútea</b>Etapa posterior a la ovulación y anterior a la siguiente menstruación.</div>
+      </div>
+      <div id="selectedPhaseInfo" class="phase-card">
+        <h4>👆 Toca cualquier día</h4>
+        <p>Te diré qué etapa representa ese color y qué significa.</p>
+      </div>
+      <p style="margin:10px 0 0;color:var(--muted);font-size:12px">El borde rosa marca el día real en el que estás. Si ya pasó la fecha esperada y no registraste una nueva menstruación, la app no inventa un Día 1: seguirá contando y te avisará que la menstruación era esperada.</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><small>Próximo periodo estimado</small><b id="nextDate">—</b></div>
+      <div class="stat"><small>Faltan aproximadamente</small><b id="daysUntil">—</b></div>
+      <div class="stat"><small>Duración usada</small><b id="avgCycle">28 días</b></div>
+    </div>
+
+    <div class="card">
+      <h3>¿Cómo estás hoy?</h3>
+      <div class="quick">
+        <button data-action="go('registro')">😊<strong>Ánimo</strong><small>Guarda cómo te sientes</small></button>
+        <button data-action="go('registro')">🌿<strong>Síntomas</strong><small>Cólicos, energía y más</small></button>
+        <button data-action="go('calendario')">📅<strong>Mi calendario</strong><small>Mira tus fechas</small></button>
+        <button data-action="go('aprende')">💗<strong>Quiero aprender</strong><small>Información sin tabúes</small></button>
+      </div>
+    </div>
+
+    <div id="homeAlert" class="card"></div>
+    <div class="card privacy">
+      <h3>🔒 Tus datos son tuyos</h3>
+      <p style="margin-bottom:0;color:var(--muted)">Tus registros se guardan en este dispositivo. Esta versión no pide cuenta ni correo.</p>
+    </div>
+  </section>
+
+  <section id="calendario" class="view">
+    <div class="card calendar-shell" style="margin-top:0">
+      <div class="calendar-head">
+        <button class="iconbtn" data-action="changeMonth(-1)">‹</button>
+        <h3 id="monthTitle" style="margin:0"></h3>
+        <button class="iconbtn" data-action="changeMonth(1)">›</button>
+      </div>
+      <div class="week"><div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div><div>D</div></div>
+      <div id="calgrid" class="calgrid"></div>
+      <div class="legend">
+        <span><i class="sw" style="background:#ffd5e8"></i>Rosa · Menstruación registrada</span>
+        <span><i class="sw" style="background:#fff;border:2px solid #ef8fbd"></i>Rosa borde · Menstruación estimada</span>
+        <span><i class="sw" style="background:#e8faef"></i>Verde · Ventana fértil estimada</span>
+        <span><i class="sw" style="background:#dcf8ff"></i>Azul · Ovulación estimada</span>
+        <span><i class="sw" style="background:#30262c"></i>Hoy</span>
+      </div>
+      <div class="alert">Las fechas fértiles y de ovulación son estimaciones. No uses estas predicciones como método anticonceptivo.</div>
+    </div>
+    <div class="card">
+      <h3>Historial de menstruaciones</h3>
+      <p style="color:var(--muted);margin-top:-4px">Aquí solo aparecen los inicios reales que tú hayas registrado. Las predicciones no se guardan como menstruaciones reales.</p>
+      <div id="periodHistory"></div>
+    </div>
+  </section>
+
+  <section id="registro" class="view">
+    <div class="card" style="margin-top:0">
+      <h3>📝 Registrar mi día</h3>
+      <label class="label">Fecha</label><input type="date" id="logDate">
+
+      <label class="label">¿Hoy tienes menstruación?</label>
+      <div class="segment">
+        <button id="periodYes" class="chip" data-action="setPeriod(true)">🩸 Sí</button>
+        <button id="periodNo" class="chip" data-action="setPeriod(false)">No</button>
+      </div>
+
+      <div id="flowBox">
+        <label class="label">Flujo</label>
+        <div class="flow-grid">
+          <button class="flow" data-flow="Manchado">•<br>Manchado</button>
+          <button class="flow" data-flow="Ligero">●<br>Ligero</button>
+          <button class="flow" data-flow="Medio">●●<br>Medio</button>
+          <button class="flow" data-flow="Abundante">●●●<br>Abundante</button>
+        </div>
+      </div>
+
+      <label class="label">Dolor o cólicos · 0 a 10</label>
+      <div class="range-line"><input type="range" id="pain" min="0" max="10" value="0"><div id="painVal" class="range-val">0</div></div>
+
+      <label class="label">Energía · 0 a 10</label>
+      <div class="range-line"><input type="range" id="energy" min="0" max="10" value="5"><div id="energyVal" class="range-val">5</div></div>
+
+      <label class="label">¿Cómo te sientes?</label>
+      <div id="moods" class="segment">
+        <button class="chip" data-mood="Tranquila">🙂 Tranquila</button>
+        <button class="chip" data-mood="Sensible">🥹 Sensible</button>
+        <button class="chip" data-mood="Irritable">😣 Irritable</button>
+        <button class="chip" data-mood="Cansada">😴 Cansada</button>
+        <button class="chip" data-mood="Con energía">✨ Con energía</button>
+      </div>
+
+      <label class="label">Notas</label>
+      <textarea id="notes" placeholder="Escribe lo que quieras recordar de este día"></textarea>
+
+      <div class="row" style="margin-top:14px">
+        <button class="btn primary" data-action="saveLog()">Guardar mi día</button>
+        <button class="btn outline" data-action="loadLogForDate()">Cargar registro</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="bienestar" class="view">
+    <div class="card" style="margin-top:0">
+      <h3>🌷 Mi perfil</h3>
+      <label class="label">Nombre o apodo</label>
+      <input id="nickname" placeholder="Ej. Sofía">
+      <label class="label">Fecha de cumpleaños</label>
+      <input id="birthday" type="date">
+      <div class="formgrid">
+        <div><label class="label">Duración habitual del ciclo</label><input id="cycleLength" type="number" min="21" max="45" value="28"></div>
+        <div><label class="label">Duración habitual de la menstruación</label><input id="periodLength" type="number" min="2" max="10" value="5"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn primary" data-action="saveSettings()">Guardar ajustes</button>
+      </div>
+    </div>
+
+    <div class="card" style="background:linear-gradient(135deg,#fff5fa,#fff)">
+      <h3>💾 Respaldo de mis datos</h3>
+      <p style="color:var(--muted)">
+        Aquí puedes guardar una copia de toda tu información. 
+        Guarda ese archivo en Google Drive, OneDrive, tu computadora o envíatelo por correo.
+        Si cambias de teléfono o reinstalas Mi Ciclo, usa <b>Restaurar respaldo</b>.
+      </p>
+      <div class="row">
+        <button class="btn primary" data-action="exportData()">⬇ Crear respaldo</button>
+        <label class="btn soft" style="cursor:pointer">
+          ⬆ Restaurar respaldo
+          <input id="importFile2" type="file" accept=".json" style="display:none">
+        </label>
+        <button class="btn outline" data-action="cleanInvalidHistory()">🧹 Limpiar fechas inválidas</button>
+      </div>
+      <div class="alert">
+        El respaldo incluye nombre, cumpleaños, menstruaciones, registros diarios, síntomas, notas, ajustes y recordatorios.
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Mis registros recientes</h3>
+      <div id="recentLogs"></div>
+    </div>
+
+    <div class="card">
+      <h3>📄 Informe para compartir con mi médico</h3>
+      <p style="color:var(--muted)">Genera un resumen con menstruaciones, duración, sangrado, dolor, energía, síntomas, notas y anticonceptivo registrado.</p>
+      <div class="report-controls">
+        <div>
+          <label class="label">Periodo del informe</label>
+          <select id="reportRange">
+            <option value="3">Últimos 3 meses</option>
+            <option value="6">Últimos 6 meses</option>
+            <option value="12">Último año</option>
+            <option value="all">Todo el historial</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:end">
+          <button class="btn primary" style="width:100%" data-action="generateMedicalReport()">📄 Generar informe / PDF</button>
+        </div>
+      </div>
+      <div class="alert">El informe resume lo que registraste; no realiza diagnósticos.</div>
+    </div>
+  </section>
+
+  <section id="anticonceptivo" class="view">
+    <div class="card" style="margin-top:0;background:linear-gradient(135deg,#fff1f7,#fff 60%,#f5fbff)">
+      <h3>💊 Recordatorio de anticonceptivo o medicamento</h3>
+      <p style="color:var(--muted)">Guarda la hora del recordatorio. Cuando la app pueda ejecutar la alerta, aparecerá una notificación del teléfono. Al tocarla se abrirá Mi Ciclo.</p>
+
+      <div class="formgrid">
+        <div>
+          <label class="label">Frecuencia</label>
+          <select id="medicineFrequency">
+            <option value="daily">Píldora / todos los días</option>
+            <option value="weekly">Parche / cada semana</option>
+            <option value="monthly">Anillo / cada mes</option>
+            <option value="custom">Intervalo personalizado</option>
+            <option value="once">Fecha específica</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Hora</label>
+          <input type="time" id="medicineTime" value="21:00">
+        </div>
+      </div>
+
+      <div id="medicineDateBox" style="display:none">
+        <label class="label">Fecha de inicio o fecha específica</label>
+        <input type="date" id="medicineDate">
+      </div>
+
+      <div id="medicineCustomBox" style="display:none">
+        <div class="formgrid">
+          <div>
+            <label class="label">Repetir cada</label>
+            <input type="number" id="medicineEvery" min="1" max="120" value="3">
+          </div>
+          <div>
+            <label class="label">Unidad</label>
+            <select id="medicineUnit">
+              <option value="days">Días</option>
+              <option value="weeks">Semanas</option>
+              <option value="months" selected>Meses</option>
+              <option value="years">Años</option>
+            </select>
+          </div>
+        </div>
+        <div class="formgrid">
+          <div>
+            <label class="label">Avisar también</label>
+            <select id="medicineAdvance">
+              <option value="0">El mismo día</option>
+              <option value="1">1 día antes y el mismo día</option>
+              <option value="7">7 días antes, 1 día antes y el mismo día</option>
+              <option value="30">30 días antes, 7 días antes, 1 día antes y el mismo día</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Tipo / método</label>
+            <select id="medicineType">
+              <option value="Anticonceptivo">Anticonceptivo</option>
+              <option value="Inyección">Inyección</option>
+              <option value="Implante">Implante</option>
+              <option value="DIU">DIU</option>
+              <option value="Medicamento">Otro medicamento</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <label class="label">Nombre o nota</label>
+      <input id="medicineName" placeholder="Ej. Anticonceptivo de las 9">
+
+      <div class="row" style="margin-top:13px">
+        <button class="btn primary" data-action="saveMedicineReminder()">Guardar recordatorio</button>
+        <button class="btn soft" data-action="enableMedicineNotifications()">🔔 Activar notificaciones</button>
+        <button class="btn outline" data-action="clearMedicineReminder()">Borrar</button>
+      </div>
+
+      <div id="medicineSummary" style="margin-top:10px"></div>
+
+      <div class="alert">
+        Para recibir notificaciones debes aceptar el permiso del navegador. En una PWA web, Android puede suspender temporizadores cuando la app está completamente cerrada; para avisos garantizados con la app cerrada se necesita un servicio push (por ejemplo Firebase).
+      </div>
+    </div>
+  </section>
+
+  <section id="aprende" class="view">
+    <div class="card learn" style="margin-top:0">
+      <details class="topic" open>
+        <summary>🩸 ¿Qué es la menstruación?</summary>
+        <p>Es el sangrado que ocurre cuando el revestimiento del útero se desprende. Es una parte normal del ciclo menstrual.</p>
+      </details>
+      <details class="topic">
+        <summary>🔄 ¿Por qué mi ciclo no siempre dura 28 días?</summary>
+        <p>28 días es un promedio frecuente, no una regla. Por eso puedes cambiar la duración habitual en tus ajustes y la app aprende mejor cuando registras varios inicios reales.</p>
+      </details>
+      <details class="topic">
+        <summary>🌼 ¿Qué es la ovulación?</summary>
+        <p>Es la liberación de un óvulo por uno de los ovarios. La app solo puede estimar cuándo podría ocurrir.</p>
+      </details>
+      <details class="topic">
+        <summary>⚠️ Importante sobre las predicciones</summary>
+        <p>Esta app es un diario educativo. Las fechas fértiles, de ovulación y de próxima menstruación son estimaciones y no deben usarse para evitar o buscar un embarazo.</p>
+      </details>
+    </div>
+  </section>
+</div>
+
+<nav class="bottomnav">
+  <button class="nav active" data-go="inicio" data-action="go('inicio')"><span class="ico">🏠</span>Inicio</button>
+  <button class="nav" data-go="calendario" data-action="go('calendario')"><span class="ico">📅</span>Calendario</button>
+  <button class="nav" data-go="registro" data-action="go('registro')"><span class="ico">✍️</span>Registrar</button>
+  <button class="nav" data-go="bienestar" data-action="go('bienestar')"><span class="ico">🌷</span>Bienestar</button>
+  <button class="nav" data-go="anticonceptivo" data-action="go('anticonceptivo')"><span class="ico">💊</span>Anticonceptivo</button>
+  <button class="nav" data-go="aprende" data-action="go('aprende')"><span class="ico">💗</span>Aprende</button>
+</nav>
+
+<div id="toast" class="toast"></div>
+
+<div id="onboarding" class="onboarding">
+  <div class="onboarding-card">
+    <span class="badge">BIENVENIDA</span>
+    <h2 style="margin:10px 0 6px">🌸 Hagamos Mi Ciclo más tuyo</h2>
+    <p style="color:var(--muted)">Escribe el nombre o apodo que quieres ver y tu fecha de cumpleaños.</p>
+    <label class="label">Tu nombre o apodo</label>
+    <input id="onboardName" placeholder="Ej. Sofía">
+    <label class="label">Fecha de cumpleaños</label>
+    <input id="onboardBirthday" type="date">
+    <button class="btn primary" style="margin-top:14px;width:100%" data-action="finishOnboarding()">Guardar y continuar</button>
+  </div>
+</div>
+
+<script src="app.js" defer></script>
+</body>
+</html>
